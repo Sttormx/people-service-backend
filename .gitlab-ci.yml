@@ -1,0 +1,41 @@
+stages:
+    - build
+    - deployAWS
+
+build:
+    image: docker
+    only:
+        - main-Pedro
+    services:
+        - docker:dind
+    stage: build
+    script:
+        - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+        - docker build --pull -t "$CI_REGISTRY_IMAGE:ps_pedro" .
+        - docker push "$CI_REGISTRY_IMAGE:ps_pedro"
+
+deployAWS:
+    only:
+        - main-Pedro
+    stage: deployAWS
+    image: alpine
+    variables:
+        SERVER: $SERVER_IP_PEDRO
+        PORT: $SERVER_PORT_PEDRO       
+    script:
+        - apk add openssh
+        - apk add bash
+        - mkdir ~/.ssh
+        - echo "$SSH_KNOWN_HOSTS_PEDRO" >> ~/.ssh/known_hosts
+        - chmod 644 ~/.ssh/known_hosts
+        - eval $(ssh-agent -s)
+        - bash -c 'ssh-add <(echo "$SSH_PRIVATE_KEY_PEDRO")'
+        - scp $ENV_PEDRO ubuntu@$SERVER:.env
+
+        - ssh ubuntu@$SERVER "echo $CI_BUILD_TOKEN | docker login --username gitlab-ci-token --password-stdin registry.gitlab.com"
+
+        - ssh ubuntu@$SERVER "docker container stop ps_pedro" || true
+        - ssh ubuntu@$SERVER "docker container rm ps_pedro" || true
+        - ssh ubuntu@$SERVER "docker image rm ${CI_REGISTRY_IMAGE}:ps_pedro" || true
+
+        - ssh ubuntu@$SERVER "docker container run -v /home/ubuntu/.env:/code/.env --name ps_pedro -p $PORT:3000 -d ${CI_REGISTRY_IMAGE}:ps_pedro"

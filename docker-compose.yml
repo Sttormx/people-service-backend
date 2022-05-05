@@ -1,0 +1,21 @@
+version: '3.8'
+services: 
+
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: people-service-API
+    volumes:
+      - .:/app
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=areopagus.cfukc8fa9ncd.us-east-1.rds.amazonaws.com
+      - DB_PORT=3306  
+      - DB_DATABASE=pedro
+      - DB_USERNAME=admin
+      - DB_PASSWORD=admin123
+    command: npm start
